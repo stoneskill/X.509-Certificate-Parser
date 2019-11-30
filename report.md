@@ -4,13 +4,69 @@
 
 ## 实验要求
 
-设计并实现一个小程序，读入一个X.509 数字证书，按照标准定义给出证书中有关项目的中(英) 文内容陈述。
+设计并实现一个小程序，读入一个X.509 数字证书，按照标准定义给出证书中有关项目的中(英)文内容陈述。
 
 ## X.509 证书
 
 X.509 是密码学里公钥证书的格式标准。
 
-X.509 证书结构如下：
+由RFC5280文档可知X.509 v3证书结构如下：
+
+```
+   Certificate  ::=  SEQUENCE  {
+        tbsCertificate       TBSCertificate,
+        signatureAlgorithm   AlgorithmIdentifier,
+        signatureValue       BIT STRING  }
+
+   TBSCertificate  ::=  SEQUENCE  {
+        version         [0]  EXPLICIT Version DEFAULT v1,
+        serialNumber         CertificateSerialNumber,
+        signature            AlgorithmIdentifier,
+        issuer               Name,
+        validity             Validity,
+        subject              Name,
+        subjectPublicKeyInfo SubjectPublicKeyInfo,
+        issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+                             -- If present, version MUST be v2 or v3
+        subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+                             -- If present, version MUST be v2 or v3
+        extensions      [3]  EXPLICIT Extensions OPTIONAL
+                             -- If present, version MUST be v3
+        }
+
+   Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+
+   CertificateSerialNumber  ::=  INTEGER
+
+   Validity ::= SEQUENCE {
+        notBefore      Time,
+        notAfter       Time }
+
+   Time ::= CHOICE {
+        utcTime        UTCTime,
+        generalTime    GeneralizedTime }
+
+   UniqueIdentifier  ::=  BIT STRING
+
+   SubjectPublicKeyInfo  ::=  SEQUENCE  {
+        algorithm            AlgorithmIdentifier,
+        subjectPublicKey     BIT STRING  }
+
+   Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+
+   Extension  ::=  SEQUENCE  {
+        extnID      OBJECT IDENTIFIER,
+        critical    BOOLEAN DEFAULT FALSE,
+        extnValue   OCTET STRING
+                    -- contains the DER encoding of an ASN.1 value
+                    -- corresponding to the extension type identified
+                    -- by extnID
+        }
+```
+
+中文解释如下：
+
+### tbsCertificate
 
 1. X.509证书基本部分
    1.1. 版本号.
@@ -90,13 +146,52 @@ X.509 证书结构如下：
    
    指出证书拥有者的一系列属性。可以使用这一项来传递访问控制信息。
    
-3. 证书签名
+   
+   
 
-   3.1. 证书签名算法
-   
+### algorithmIdentifier
+
+   1. 证书签名算法
+
    用于说明本证书所用的数字签名算法。
-   
-   3.2. 证书签名值
+
+### signatureValue
+
+1. 证书签名值
+
+   证书的签名
+
+
+
+X.509证书采用TLV（tag-length-value）格式存储，为ANS.1跨平台的编码格式的一种。
+
+- Tag
+
+用一个数字代码表示整个数据块的类型。具体如下表
+
+| Type                         | Tag number (decimal) | Tag number (hexadecimal) |
+| ---------------------------- | -------------------- | ------------------------ |
+| `INTEGER`                    | 2                    | `02`                     |
+| `BIT STRING`                 | 3                    | `03`                     |
+| `OCTET STRING`               | 4                    | `04`                     |
+| `NULL`                       | 5                    | `05`                     |
+| `OBJECT IDENTIFIER`          | 6                    | `06`                     |
+| `SEQUENCE` and `SEQUENCE OF` | 16                   | `10`                     |
+| `SET` and `SET OF`           | 17                   | `11`                     |
+| `PrintableString`            | 19                   | `13`                     |
+| `T61String`                  | 20                   | `14`                     |
+| `IA5String`                  | 22                   | `16`                     |
+| `UTCTime`                    | 23                   | `17`                     |
+
+- Length
+
+Value区的大小（以字节为单位），小段存储。
+
+分为长length和短length，如果第8位是1，则为长length，存储长度信息所占用的字节；否则，此字节即为数据区的长度。
+
+- Value
+
+数据区，长度可变的字节集。
 
 ## 数据结构
 
