@@ -29,13 +29,14 @@ class X509 {
             switch (t.tag) {
             case STRUCTURE: // structure
             case SET:       // set
+                parse(begin, begin + t.length);
+                break;
+
             case EXTENSION: // extention
             case VERSION:   // version
                 certificate.tokens.push_back(Field(t.tag, t.value));
                 parse(begin, begin + t.length);
                 break;
-                // certificate.tokens.push_back(Field(t.tag, t.value));
-                // break;
 
             case BOOLEAN: // boolean
                 if (t.value[0] == 0) {
@@ -45,6 +46,7 @@ class X509 {
                 certificate.tokens.push_back(Field(t.tag, value));
                 break;
 
+            case OUTPUT:
             case INTEGER: // integer
                 certificate.tokens.push_back(Field(t.tag, t.value));
                 break;
@@ -55,14 +57,12 @@ class X509 {
                 certificate.tokens.push_back(Field(t.tag, t.value));
                 break;
             case OCTETSTRING: // octet string
-                certificate.tokens.push_back(Field(t.tag, t.value));
-                // parse(begin, begin + t.length);
+                // certificate.tokens.push_back(Field(t.tag, t.value));
+                parse(begin, begin + t.length);
                 break;
             case NUL:
                 break;
             case OBJECT: // object identifier
-
-                // maybe bug here
                 value = "";
                 v1 = cerText[begin] / 40;
                 v2 = cerText[begin] - v1 * 40;
@@ -88,7 +88,6 @@ class X509 {
             case SUBJECTID:    // subject id
             case IA5STRING:    // IA5String
             case SPEIA5STRING: // IA5String
-            case OUTPUT:
                 value = "";
                 for (j = begin; j < begin + t.length; j++) {
                     value += char(cerText[j]);
@@ -110,6 +109,8 @@ class X509 {
     X509() {}
     ~X509() {}
     Certificate parseCRT(string cert) {
+        certificate = Certificate();
+        cerText.clear();
         if (cert.length() % 4 != 0) {
             perror("error certificate");
             exit(0);

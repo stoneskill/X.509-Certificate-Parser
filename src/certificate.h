@@ -29,7 +29,8 @@ struct TLV {
             this->length = v[begin + 1];
         }
 
-        for (int j = begin + offset; j < begin + offset + this->length; j++) {
+        for (int j = begin + offset;
+             j < v.size() && j < begin + offset + this->length; j++) {
             this->value.push_back(v[j]);
         }
     }
@@ -91,7 +92,7 @@ map<unsigned char, string> tagName = {{PUBLICKEY, PUBLICKEY_STR},
                                       {EXTENSION, EXTENSION_STR},
                                       {OUTPUT, OUTPUT_STR}};
 
-map<string, string> mapping = {
+map<string, string> mapping1 = {
     {"1.3.6.1.5.5.7.3.1", "id_kp_serverAuth: True"},
     {"1.3.6.1.5.5.7.3.2", "id_kp_clientAuth: True"},
     {"2.5.29.37", "Extended key usage:"},
@@ -100,10 +101,14 @@ map<string, string> mapping = {
     {"2.23.140.1.2.2", "organization-validated:"},
     {"1.3.6.1.5.5.7.1.1", "AuthorityInfoAccess:"},
     {"2.5.29.19", "Basic Constraints:"},
-    {"1.3.6.1.5.5.7.3.2", "id_kp_clientAuth: True"},
-    {"1.2.840.10045.3.1.7", "SEC 2 recommended elliptic curve domain: \n"},
+    {"1.3.6.1.5.5.7.3.2", "id_kp_clientAuth: True"}};
+
+map<string, string> mapping2 = {
+    {"1.2.840.10045.3.1.7", "SEC 2 recommended elliptic curve domain: "},
     {"2.5.29.35", "Authority Key Identifier: "},
-    {"2.5.29.14", "Subject Key Identifier: "},
+    {"2.5.29.14", "Subject Key Identifier: "}};
+
+map<string, string> mapping3 = {
     {"1.3.6.1.5.5.7.2.1", "OID for CPS qualifier: "},
     {"1.3.6.1.5.5.7.48.1", "OCSP: "},
     {"1.3.6.1.5.5.7.48.2", "id-ad-caIssuers: "},
@@ -168,7 +173,7 @@ struct Certificate {
                 nextToken();
                 printf("%d\n", token.valueVec[0] + 1);
                 nextToken();
-                printf("%s: ", "Sequence: ");
+                printf("%s: ", "Sequence");
                 printVec(token.valueVec);
 
             } else if (token.tag == OBJECT) {
@@ -176,30 +181,41 @@ struct Certificate {
                     algorithmMapping.end()) {
                     printf("Algorithm: %s\n",
                            algorithmMapping[token.valueStr].c_str());
-                } else if (token.valueStr == "2.5.29.17") {
-                    printf("%s\n", mapping[token.valueStr].c_str());
-                    nextToken();
-                    while (token.tag == SUBJECTID) {
-                        printf("%s", token.valueStr.c_str());
+
+                } else if (mapping1.find(token.valueStr) != mapping1.end()) {
+                    printf("%s\n", mapping1[token.valueStr].c_str());
+                } else if (mapping2.find(token.valueStr) != mapping2.end()) {
+                    printf("%s\n", mapping2[token.valueStr].c_str());
+                    if (this->tokens[cur].valueVec.size() != 0) {
                         nextToken();
+                        printVec(token.valueVec);
                     }
-                } else if (mapping.find(token.valueStr) != mapping.end()) {
-                    printf("%s\n", mapping[token.valueStr].c_str());
+                } else if (mapping3.find(token.valueStr) != mapping3.end()) {
+                    printf("%s\n", mapping3[token.valueStr].c_str());
+                    if (this->tokens[cur].valueStr != "") {
+                        nextToken();
+                        printf("  %s\n", token.valueStr.c_str());
+                    }
                 } else {
-                    printf("unknown object identifier\n");
+                    printf("unknown object identifier: %s\n",
+                           token.valueStr.c_str());
                 }
             } else if (token.tag == UTCTIME) {
                 printf("Validity: \n");
-                printf("not before: ");
+                printf("  not before: ");
                 printTime(token.valueStr);
                 nextToken();
-                printf("not after: ");
+                printf("  not after: ");
                 printTime(token.valueStr);
             } else if (token.tag == STRUCTURE || token.tag == SET ||
-                       token.tag == EXTENSION) {
+                       token.tag == EXTENSION || token.tag == PUBLICKEY) {
                 // printf("\n");
-                // printf("%s\n", tagName[token.tag].c_str());
-
+            } else if (token.tag == SPEIA5STRING || token.tag == IA5STRING ||
+                       token.tag == PRINTABLE || token.tag == SUBJECTID) {
+                printf("  %s\n", token.valueStr.c_str());
+            } else if (token.tag == OUTPUT) {
+                printf("  ");
+                printVec(token.valueVec);
             } else if (token.valueStr == "") {
                 printf("%s: ", tagName[token.tag].c_str());
                 printVec(token.valueVec);
