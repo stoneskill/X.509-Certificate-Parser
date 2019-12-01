@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 using std::string;
+using std::to_string;
 using std::vector;
 
 static const string lookupTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -17,86 +18,91 @@ class X509 {
     void parse(int begin, int end) {
         int v1 = 0, v2 = 0, temp = 0;
         int j = 0;
-        string name = "", value = "";
-        TLV t(this->cerText);
-        begin += t.offset;
-        // i += t.length;
-        switch (t.tag) {
-        case STRUCTURE: // structure
-        case SET:       // set
-            parse(begin, begin + t.length);
-            break;
+        string value = "";
+        while (begin < end) {
+            TLV t(this->cerText, begin);
+            // printf("%u %d %d\n",t.tag,t.length,t.offset);
+            begin += t.offset;
+            if (begin >= end) {
+                break;
+            }
+            switch (t.tag) {
+            case STRUCTURE: // structure
+            case SET:       // set
+            case EXTENSION: // extention
+            case VERSION:   // version
+                certificate.tokens.push_back(Field(t.tag, t.value));
+                parse(begin, begin + t.length);
+                break;
+                // certificate.tokens.push_back(Field(t.tag, t.value));
+                // break;
 
-        case VERSION: // version
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            parse(begin, begin + t.length);
-            break;
-        case 0xa3: // extention
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            parse(begin, begin + t.length);
-            break;
+            case BOOLEAN: // boolean
+                if (t.value[0] == 0) {
+                    value = "FALSE";
+                } else
+                    value = "TRUE";
+                certificate.tokens.push_back(Field(t.tag, value));
+                break;
 
-        case 0x1: // boolean
-            name = "boolean";
-            if (t.value[0] == 0) {
-                value = "FALSE";
-            } else
-                value = "TRUE";
-            certificate.tokens.push_back(Field(t.tag, value));
+            case INTEGER: // integer
+                certificate.tokens.push_back(Field(t.tag, t.value));
+                break;
+            case BITSTRING: // bit string
+                certificate.tokens.push_back(Field(t.tag, t.value));
+                break;
+            case PUBLICKEY:
+                certificate.tokens.push_back(Field(t.tag, t.value));
+                break;
+            case OCTETSTRING: // octet string
+                certificate.tokens.push_back(Field(t.tag, t.value));
+                // parse(begin, begin + t.length);
+                break;
+            case NUL:
+                break;
+            case OBJECT: // object identifier
 
-            break;
-        case 0x2: // integer
-            name = "integer";
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            break;
-        case 0x3: // bit string
-            name = "bit string";
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            break;
-        case 0x4: // octet string
-            parse(begin, begin + t.length);
-            break;
-        case 0x5:
-            break;
-        case 0x6: // object identifier
-            name = "";
-            v1 = cerText[begin] / 40;
-            v2 = cerText[begin] - v1 * 40;
-            name += to_string(v1);
-            name += ".";
-            name += to_string(v2);
-            name += ".";
-            temp = 0;
-            for (j = begin; j < end; j++) {
-                temp <<= 7;
-                temp += cerText[j] & 0x7f;
-                if (cerText[j] & 0x80 == 0) {
-                    name += to_string(temp);
-                    name += ".";
-                    temp = 0;
+                // maybe bug here
+                value = "";
+                v1 = cerText[begin] / 40;
+                v2 = cerText[begin] - v1 * 40;
+                value += to_string(v1);
+                value += ".";
+                value += to_string(v2);
+                value += ".";
+                temp = 0;
+                for (j = begin + 1; j < begin + t.length; j++) {
+                    temp <<= 7;
+                    temp += cerText[j] & 0x7f;
+                    if ((cerText[j] & 0x80) == 0) {
+                        value += to_string(temp);
+                        if (j < begin + t.length - 1)
+                            value += ".";
+                        temp = 0;
+                    }
                 }
-            }
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            break;
-        case 0x17: // time
-            name = "UTCTime";
-        case 0x13: // string
-        case 0x82: // subjectUniqueID
-        case 0x16: // IA5String
-        case 0xc:  // UTF8String
-        case 0x86: // IA5String
-            for (j = begin; j < end; j++) {
-                name += to_string(cerText[j]);
-            }
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            break;
-        case 0x80:
-            certificate.tokens.push_back(Field(t.tag, t.value));
-            break;
+                certificate.tokens.push_back(Field(t.tag, value));
+                break;
+            case UTCTIME:      // time
+            case PRINTABLE:    // string
+            case SUBJECTID:    // subject id
+            case IA5STRING:    // IA5String
+            case SPEIA5STRING: // IA5String
+            case OUTPUT:
+                value = "";
+                for (j = begin; j < begin + t.length; j++) {
+                    value += char(cerText[j]);
+                }
+                certificate.tokens.push_back(Field(t.tag, value));
+                break;
 
-        default:
-            parse(begin, end);
-            break;
+            default:
+                // printf("unknown tag: %u\n",t.tag);
+                // exit(1);
+                return;
+                // break;
+            }
+            begin += t.length;
         }
     }
 
@@ -110,7 +116,7 @@ class X509 {
         }
         // base64 -> binary
         char temp[4];
-        for (int i = 0; i < cert.length(); i++) {
+        for (int i = 0; i < cert.length(); i += 4) {
             for (int j = 0; j < 4; j++) {
                 temp[j] = lookupTable.find(cert[i + j]);
             }
@@ -119,6 +125,11 @@ class X509 {
             cerText.push_back(((temp[1] & 0xf) << 4) | ((temp[2] & 0x3c) >> 2));
             cerText.push_back(((temp[2] & 0x3) << 6) | (temp[3] & 0x3f));
         }
+        // for (int i = 0; i < cerText.size(); i++) {
+        //     printf("%u ", cerText[i]);
+        // }
+        // printf("\n");
         parse(0, cert.length());
+        return certificate;
     }
 };

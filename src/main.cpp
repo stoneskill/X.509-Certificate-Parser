@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     ifstream certificateFile(argv[1]);
+    printf("%s\n", argv[1]);
     if (!certificateFile.is_open()) {
         perror("cannot open file\n");
         exit(1);
@@ -22,7 +23,7 @@ int main(int argc, char **argv) {
     char buffer[MAXN + 5];
     while (certificateFile.peek() != EOF) {
         certificateFile.getline(buffer, MAXN);
-        string line=string(buffer);
+        string line = string(buffer);
         if (line.find("BEGIN") != -1) {
             continue;
         } else if (line.find("END") != -1) {
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
         perror("empty file\n");
         exit(1);
     }
-    
+
     X509 x;
     Certificate c = x.parseCRT(cert);
     c.printCertificate();
