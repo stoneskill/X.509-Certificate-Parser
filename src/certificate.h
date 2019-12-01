@@ -154,7 +154,6 @@ struct Certificate {
     }
 
     void printTime(const string &time) {
-        // int year = (time[0] - '0') * 10 + (time[1] - '0') + 1970;
         printf("20%c%c year, %c%c month, %c%c day, %c%c:%c%c:%c%c \n", time[0],
                time[1], time[2], time[3], time[4], time[5], time[6], time[7],
                time[8], time[9], time[10], time[11]);
@@ -188,6 +187,7 @@ struct Certificate {
                     printf("%s\n", mapping2[token.valueStr].c_str());
                     if (this->tokens[cur].valueVec.size() != 0) {
                         nextToken();
+                        printf("  ");
                         printVec(token.valueVec);
                     }
                 } else if (mapping3.find(token.valueStr) != mapping3.end()) {
@@ -197,8 +197,8 @@ struct Certificate {
                         printf("  %s\n", token.valueStr.c_str());
                     }
                 } else {
-                    printf("unknown object identifier: %s\n",
-                           token.valueStr.c_str());
+                    // printf("unknown object identifier: %s\n",
+                    //        token.valueStr.c_str());
                 }
             } else if (token.tag == UTCTIME) {
                 printf("Validity: \n");
@@ -215,6 +215,12 @@ struct Certificate {
                 printf("  %s\n", token.valueStr.c_str());
             } else if (token.tag == OUTPUT) {
                 printf("  ");
+                printVec(token.valueVec);
+            } else if (token.tag == BITSTRING) {
+                if (this->cur == this->tokens.size()) {
+                    printf("Signature value: ");
+                } else
+                    printf("%s: ", tagName[token.tag].c_str());
                 printVec(token.valueVec);
             } else if (token.valueStr == "") {
                 printf("%s: ", tagName[token.tag].c_str());
